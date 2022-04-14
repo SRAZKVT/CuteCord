@@ -1,19 +1,34 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
 plugins {
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
     id 'java'
 }
 
+// https://alexvasilkov.com/gradle-git for later
+
 group 'org.example'
-version '1.0-SNAPSHOT'
+version=project.cutecode_version
 
 repositories {
     mavenCentral()
 }
 
+def copyDir = "$compileJava.temporaryDir/replaced"
+task tokenReplace(type: Sync) {
+    from(sourceSets.main.java.sourceDirectories)
+    into copyDir
+    filter(ReplaceTokens, tokens: [
+            VERSION: project.version,
+    ])
+}
+compileJava.setSource(copyDir)
+compileJava.dependsOn(tokenReplace)
+
 jar {
     manifest {
         attributes(
                 'Main-Class': 'internals.CuteCordMain',
-                'Module-Name': 'CuteCord'
         )
     }
 }
@@ -23,6 +38,8 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
 
     implementation 'org.apache.httpcomponents:httpclient:4.5.13'
+    implementation 'org.json:json:20220320'
+    implementation 'org.java-websocket:Java-WebSocket:1.5.3'
 }
 
 test {
