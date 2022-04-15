@@ -4,8 +4,8 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -32,6 +32,12 @@ public class DiscordWebSocketHandler extends WebSocketClient {
     private long lastHeartbeatAck;
 
     private Timer heartbeatTimer;
+
+    /**
+     * This list contains the timestamp of all messages sent through the websocket in the last 60 seconds.
+     */
+    private final List<Long> timeStampPreviousMessages = new java.util.ArrayList<>();
+
     public DiscordWebSocketHandler(URI serverUri) {
         super(serverUri);
     }
@@ -67,6 +73,8 @@ public class DiscordWebSocketHandler extends WebSocketClient {
                     send(heartbeat.toString());
                 }
 
+                case OP_RECONNECT, OP_INVALID_SESSION -> reconnectToGateway();
+
                 case OP_HELLO         -> {
                     lastHeartbeatAck = System.currentTimeMillis();
                     heartbeatInterval = receivedMessage.getJSONObject("d").getLong("heartbeat_interval");
@@ -76,14 +84,17 @@ public class DiscordWebSocketHandler extends WebSocketClient {
 
                 case OP_HEARTBEAT_ACK -> lastHeartbeatAck = System.currentTimeMillis();
 
-
-
-                // TODO: Handle other op codes, if non handled, the application will be stopped.
-                default -> throw new IllegalStateException(
-                        String.format("Unhandled op code: %d with event name: %s",
-                                op_code,
-                                receivedMessage.getString(EVENT_NAME)));
+                default -> throw new IllegalStateException(String.format("Unreachable op code: %d", op_code));
             }
+        }
+    }
+
+    private void reconnectToGateway() {
+        try {
+            reconnectBlocking();
+            // TODO: Implement RESUME of session with gateway, or IDENTIFY if RESUME is not possible.
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -122,15 +133,9 @@ public class DiscordWebSocketHandler extends WebSocketClient {
             @Override
             public void run() {
                 if (System.currentTimeMillis() - lastHeartbeatAck > heartbeatInterval * 1.5) {
-                    try {
-                        DiscordWebSocketHandler.this.closeBlocking();
-                        DiscordWebSocketHandler.this.reconnectBlocking();
-                        // TODO: Implement RESUME of session with gateway.
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    send(new JSONObject().put(OP_CODE, OP_HEARTBEAT).put(EVENT_DATA, lastSequenceNumber).toString());
+                    reconnectToGateway();
                 }
+                send(new JSONObject().put(OP_CODE, OP_HEARTBEAT).put(EVENT_DATA, lastSequenceNumber).toString());
             }
         }, System.currentTimeMillis() % heartbeatInterval, heartbeatInterval);
     }
@@ -141,10 +146,24 @@ public class DiscordWebSocketHandler extends WebSocketClient {
         System.out.printf("Disconnected from Discord WebSocket: %d - %s%n", code, reason);
     }
 
+    /**
+     * Sends a message to the Discord WebSocket. Also enforces the rate limit, which is 120 messages per 60 seconds.
+     * @param message The string which will be transmitted to the Discord API.
+     */
     @Override
     public void send(String message) {
-        // TODO: Rate limit sending messages (120 requests per minute).
+        long currentTime = System.currentTimeMillis();
+        timeStampPreviousMessages.removeIf(timeStamp -> currentTime - timeStamp > 60000);
+        if (timeStampPreviousMessages.size() >= 120) {
+            long oldestTimeStamp = timeStampPreviousMessages.get(0);
+            try {
+                Thread.sleep(60000 - (currentTime - oldestTimeStamp));
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
         super.send(message);
+        timeStampPreviousMessages.add(currentTime);
     }
 
     @Override
