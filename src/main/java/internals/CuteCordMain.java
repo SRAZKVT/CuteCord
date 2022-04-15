@@ -14,6 +14,7 @@ public class CuteCordMain {
             System.out.println("INFO: All modules have been stopped, and the bot has been disconnected from Discord API.");
         }));
 
+        // TODO: Actual code for modules
         while (true) {
             try {
                 Thread.sleep(1000);

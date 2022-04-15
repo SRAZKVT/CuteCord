@@ -24,11 +24,6 @@ public class Module {
     private String name;
 
     /**
-     * The file the module is from.
-     */
-    File moduleFile;
-
-    /**
      * The Jar file object, from which the manifest can be read, and classes loaded.
      */
     JarFile jarFile;
@@ -45,7 +40,6 @@ public class Module {
      * @param moduleFile the module file
      */
     public Module(File moduleFile) {
-        this.moduleFile = moduleFile;
         try {
             this.jarFile = new JarFile(moduleFile);
         } catch (IOException ignored) {
@@ -93,6 +87,7 @@ public class Module {
      */
     public String getName() {
         if (this.name == null) this.name = getAttribute("Module-Name");
+        if (this.name == null) throw new IllegalStateException("Module-Name attribute not found in manifest");
         return name;
     }
 

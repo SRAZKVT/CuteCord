@@ -6,7 +6,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * This class is used to send requests to the Discord API.
@@ -25,6 +24,8 @@ public class RequestHandler {
     }
 
     protected HttpResponse sendRequest(HttpUriRequest request) {
+        // TODO: Implement ratelimiting for HTTP requests: 50 requests per second.
+
         request.addHeader("user-agent", String.format("DiscordBot (%s, %s)", "https://github.com/SRAZKVT/CuteCord", "@VERSION@"));
         request.addHeader("authorization", String.format("Bot %s", CuteCord.AUTH_TOKEN));
         HttpResponse response;

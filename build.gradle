@@ -7,8 +7,11 @@ plugins {
 
 // https://alexvasilkov.com/gradle-git for later
 
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
+
 group 'org.example'
-version=project.cutecode_version
+version=project.cutecord_version
 
 repositories {
     mavenCentral()
